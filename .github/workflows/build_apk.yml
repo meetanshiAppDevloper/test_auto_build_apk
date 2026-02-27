@@ -4,7 +4,7 @@ on:
     types: [trigger_build]
 
 permissions:
-  contents: write # Release બનાવવા માટે પરમિશન ✅
+  contents: write
 
 jobs:
   build:
@@ -18,10 +18,23 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # ૧. ફ્લટર અને પેકેજીસને કેશ કરવા (Speed Booster) ✅
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-pub-gradle-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-gradle-
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true # ફ્લટર SDK ને કેશ કરશે ✅
 
       - name: Get Dependencies
         run: flutter pub get
@@ -31,19 +44,18 @@ jobs:
           mkdir -p assets/images
           curl -fL -o assets/images/merchant_logo.png "${{ github.event.client_payload.logo_url }}" || exit 1
 
-      - name: Change App Name
-        run: dart run rename setAppName --value "${{ github.event.client_payload.app_name }}"
-
-      - name: Change Package ID
-        run: dart run rename setBundleId --value "${{ github.event.client_payload.package_id }}"
+      - name: Change App Name & Package ID
+        run: |
+          dart run rename setAppName --value "${{ github.event.client_payload.app_name }}"
+          dart run rename setBundleId --value "${{ github.event.client_payload.package_id }}"
 
       - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
 
+      # ૨. Gradle બિલ્ડને ફાસ્ટ કરવી ✅
       - name: Build Release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
 
-      # જૂના ટેગ ડીલીટ કરવા (જેથી લિંક હંમેશા ફ્રેશ રહે)
       - name: Delete Old Release
         run: |
           gh release delete latest --yes || true
@@ -52,13 +64,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # નવી APK ને Release માં અપલોડ કરવી ✅
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
           files: build/app/outputs/flutter-apk/app-release.apk
           name: "Latest Branded APK"
-          body: "Your generated app is ready for download."
+          body: "Your app is ready for download."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
