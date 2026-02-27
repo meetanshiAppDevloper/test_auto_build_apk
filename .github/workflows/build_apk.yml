@@ -3,6 +3,9 @@ on:
   repository_dispatch:
     types: [trigger_build]
 
+permissions:
+  contents: write # Release બનાવવા માટે પરમિશન ✅
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,7 +26,6 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      # ૧. ડાઉનલોડ સ્ટેપને વધુ મજબૂત બનાવ્યું ✅
       - name: Download Merchant Logo
         run: |
           mkdir -p assets/images
@@ -35,15 +37,28 @@ jobs:
       - name: Change Package ID
         run: dart run rename setBundleId --value "${{ github.event.client_payload.package_id }}"
 
-      # ૨. આઈકોન જનરેટ કરવા માટે નવો કમાન્ડ ✅
       - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
 
       - name: Build Release APK
         run: flutter build apk --release
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      # જૂના ટેગ ડીલીટ કરવા (જેથી લિંક હંમેશા ફ્રેશ રહે)
+      - name: Delete Old Release
+        run: |
+          gh release delete latest --yes || true
+          git tag -d latest || true
+          git push origin :refs/tags/latest || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # નવી APK ને Release માં અપલોડ કરવી ✅
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: "${{ github.event.client_payload.app_name }}-APK"
-          path: build/app/outputs/flutter-apk/app-release.apk
+          tag_name: latest
+          files: build/app/outputs/flutter-apk/app-release.apk
+          name: "Latest Branded APK"
+          body: "Your generated app is ready for download."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
