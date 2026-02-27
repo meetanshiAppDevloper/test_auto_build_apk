@@ -23,28 +23,25 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      # ૧. નવો લોગો ડાઉનલોડ કરીને assets માં રિપ્લેસ કરવો
+      # ૧. ડાઉનલોડ સ્ટેપને વધુ મજબૂત બનાવ્યું ✅
       - name: Download Merchant Logo
         run: |
           mkdir -p assets/images
-          curl -L -o assets/images/merchant_logo.png "${{ github.event.client_payload.logo_url }}"
+          curl -fL -o assets/images/merchant_logo.png "${{ github.event.client_payload.logo_url }}" || exit 1
 
-      # ૨. એપનું નામ બદલવા માટે (તારા ટર્મિનલ મુજબનો સાચો કમાન્ડ) ✅
       - name: Change App Name
-        run: flutter pub run rename setAppName --value "${{ github.event.client_payload.app_name }}"
+        run: dart run rename setAppName --value "${{ github.event.client_payload.app_name }}"
 
-      # ૩. પેકેજ આઈડી બદલવા માટે (તારા ટર્મિનલ મુજબનો સાચો કમાન્ડ) ✅
       - name: Change Package ID
-        run: flutter pub run rename setBundleId --value "${{ github.event.client_payload.package_id }}"
+        run: dart run rename setBundleId --value "${{ github.event.client_payload.package_id }}"
 
-      # ૪. આઈકોન જનરેટ કરવા ✅
+      # ૨. આઈકોન જનરેટ કરવા માટે નવો કમાન્ડ ✅
       - name: Generate Launcher Icons
-        run: flutter pub run flutter_launcher_icons:main
+        run: dart run flutter_launcher_icons
 
       - name: Build Release APK
         run: flutter build apk --release
 
-      # ૫. ફાઈનલ APK ને ડાઉનલોડ કરવા માટે અપલોડ કરવી ✅
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
